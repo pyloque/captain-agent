@@ -32,6 +32,11 @@ open web ui
 http://localhost:6789
 ```
 
+Web UI
+------------------------
+![All Services](screenshot/all_services.png)
+![Service List](screenshot/service_list.png)
+
 Use Captain Java Client
 -----------------------
 ```

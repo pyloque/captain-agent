@@ -38,36 +38,36 @@ Use Captain Java Client
 git clone github.com/pyloque/captain-java.git
 
 #Service1
-import captain.ShadisClient
+import captain.CaptainClient
 
 public class Service1 {
 
     public static void main(String[] args) throws Exception {
-        ShadisClient client = new ShadisClient("localhost", 6789);
+        CaptainClient client = new CaptainClient("localhost", 6789);
         client.provide("service1", new ServiceItem("localhost", 6000)).start();
         # jvm hangs here until
         # client.stop()
     }
 }
 #Service2
-import captain.ShadisClient
+import captain.CaptainClient
 
 public class Service2 {
 
     public static void main(String[] args) throws Exception {
-        ShadisClient client = new ShadisClient("localhost", 6789);
+        CaptainClient client = new CaptainClient("localhost", 6789);
         client.provide("service2", new ServiceItem("localhost", 6001)).start();
         # jvm hangs here until
         # client.stop()
     }
 }
 #Service3
-import captain.ShadisClient
+import captain.CaptainClient
 
-public class ShadisClientTest {
+public class CaptainClientTest {
 
     public static void main(String[] args) throws Exception {
-        ShadisClient client = new ShadisClient("localhost", 6789);
+        CaptainClient client = new CaptainClient("localhost", 6789);
         client.watch("service1", "service2").provide("service3", new ServiceItem("localhost", 6002)).start();
         Thread.sleep(1000);
         System.out.println(client.select("service1").urlRoot());
@@ -78,12 +78,12 @@ public class ShadisClientTest {
 }
 
 #Service4
-import captain.ShadisClient
+import captain.CaptainClient
 
-public class ShadisClientTest {
+public class CaptainClientTest {
 
     public static void main(String[] args) throws Exception {
-        ShadisClient client = new ShadisClient("localhost", 6789);
+        CaptainClient client = new CaptainClient("localhost", 6789);
         client.watch("service1", "service2", "service3").start();
         Thread.sleep(1000);
         System.out.println(client.select("service1").urlRoot());

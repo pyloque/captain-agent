@@ -71,7 +71,7 @@ public class Service4 {
             }
 
         }).stopBeforeExit().start();
-
+        client.hang();
     }
 }
 

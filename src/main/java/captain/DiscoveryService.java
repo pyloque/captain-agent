@@ -52,7 +52,6 @@ public class DiscoveryService {
 	}
 
 	public void keepService(ServiceItem item) {
-		this.trimExpired(item.name());
 		long now = System.currentTimeMillis() / 1000;
 		Holder<Long> count = new Holder<Long>();
 		this.redis.execute(jedis -> {
@@ -137,7 +136,6 @@ public class DiscoveryService {
 	}
 
 	public ServiceSet getServiceSet(String name) {
-		this.trimExpired(name);
 		Holder<Response<Long>> version = new Holder<Response<Long>>();
 		Holder<Response<Set<Tuple>>> services = new Holder<Response<Set<Tuple>>>();
 		this.redis.transaction(pipe -> {
@@ -157,6 +155,13 @@ public class DiscoveryService {
 			});
 		}
 		return set;
+	}
+	
+	public void trimAllExpired() {
+		Set<String> names = this.getServiceNames();
+		for(String name: names) {
+			this.trimExpired(name);
+		}
 	}
 
 	private void trimExpired(String name) {

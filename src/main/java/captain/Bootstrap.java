@@ -1,17 +1,17 @@
 package captain;
 
-import spark.Spark;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+
+import spark.Spark;
 
 public class Bootstrap {
 
 	public static void main(String[] args) {
 		Bootstrap bootstrap = new Bootstrap();
 		bootstrap.initialize(args);
-		bootstrap.start();
+		bootstrap.watch().start();
 	}
 
 	private int port = 6789;
@@ -20,6 +20,7 @@ public class Bootstrap {
 
 	private RedisStore redis;
 	private DiscoveryService discovery;
+	private ExpiringWatcher watcher;
 	private final static GsonTransformer jsonify = new GsonTransformer();
 	private final static FreeMarkerEngine engine = new FreeMarkerEngine();
 	private final static String jsonType = "application/json";
@@ -47,18 +48,13 @@ public class Bootstrap {
 			this.redisHost = pair[0];
 			this.redisPort = Integer.parseInt(pair[1]);
 		}
-		this.redis = new RedisStore(this.redisHost, this.redisPort);
-		this.discovery = new DiscoveryService(this.redis);
+		this.initialize(new RedisStore(this.redisHost, this.redisPort));
 	}
 
-	public Bootstrap redisStore(RedisStore redis) {
+	public void initialize(RedisStore redis) {
 		this.redis = redis;
-		return this;
-	}
-
-	public Bootstrap discovery(DiscoveryService discovery) {
-		this.discovery = discovery;
-		return this;
+		this.discovery = new DiscoveryService(this.redis);
+		this.watcher = new ExpiringWatcher(this.discovery);
 	}
 
 	public Bootstrap port(int port) {
@@ -68,6 +64,11 @@ public class Bootstrap {
 
 	public int port() {
 		return this.port;
+	}
+
+	public Bootstrap watch() {
+		this.watcher.start();
+		return this;
 	}
 
 	public void start() {
@@ -173,6 +174,10 @@ public class Bootstrap {
 	}
 
 	public void halt() {
+		if (this.watcher.isAlive()) {
+			this.watcher.interrupt();
+			this.watcher.quit();
+		}
 		this.redis.close();
 		Spark.stop();
 	}

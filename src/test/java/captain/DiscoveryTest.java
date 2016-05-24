@@ -11,9 +11,6 @@ import org.junit.Test;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
 
-import captain.Bootstrap;
-import captain.DiscoveryService;
-import captain.RedisStore;
 import junit.framework.Assert;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
@@ -31,8 +28,7 @@ public class DiscoveryTest {
 		JedisPoolConfig config = new JedisPoolConfig();
 		JedisPool pool = new JedisPool(config, "localhost");
 		redis = new RedisStore(pool);
-		DiscoveryService discovery = new DiscoveryService(redis);
-		bootstrap.redisStore(redis).discovery(discovery);
+		bootstrap.initialize(redis);
 		bootstrap.port(randomPort());
 		bootstrap.start();
 		this.urlRoot = "http://localhost:" + bootstrap.port();

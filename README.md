@@ -80,7 +80,7 @@ public class Service4 {
         CaptainClient client = new CaptainClient("localhost", 6789);
         client.watch("service1", "service2", "service3")
         .provide("service4", new ServiceItem("localhost", 6000))
-        .addListener(new IServiceListener() {
+        .observe(new IServiceObserver() {
 
             @Override
             public void ready(String name) {

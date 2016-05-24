@@ -55,6 +55,7 @@ public class Bootstrap {
 		this.redis = redis;
 		this.discovery = new DiscoveryService(this.redis);
 		this.watcher = new ExpiringWatcher(this.discovery);
+		this.watcher.setDaemon(true);
 	}
 
 	public Bootstrap port(int port) {

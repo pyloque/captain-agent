@@ -8,7 +8,7 @@ But the market only provides zookeeper/etcd/consul, they are complex, at least m
 
 Architecture
 -------------
-!(Captain Architecture)[screenshot/arch.png]
+![Captain Architecture](screenshot/arch.png)
 
 1. If all captain server or redis shutdown, captain client will keep services information in local memory.
 2. If just one captain server shutdown, captain client will sync service information from other captain server.

@@ -39,6 +39,6 @@ Web UI
 
 Client SDK
 ------------------------
-[Python Client](https://github.com/pyloque/pycaptain)
-[Java Client](https://github.com/pyloque/captain-java)
-[Golang Client](https://github.com/pyloque/gocaptain)
+1. Python Client https://github.com/pyloque/pycaptain
+2. Java Client https://github.com/pyloque/captain-java
+3. Golang Client https://github.com/pyloque/gocaptain

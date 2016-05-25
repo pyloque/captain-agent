@@ -3,6 +3,7 @@ package captain;
 public class ExpiringWatcher extends Thread {
 	
 	private DiscoveryService discovery;
+	private int interval;
 	private boolean stop;
 	
 	public ExpiringWatcher(DiscoveryService discovery) {
@@ -13,11 +14,16 @@ public class ExpiringWatcher extends Thread {
 		while(!stop) {
 			this.discovery.trimAllExpired();
 			try {
-				Thread.sleep(1000);
+				Thread.sleep(interval);
 			} catch (InterruptedException e) {
 				stop = true;
 			}
 		}
+	}
+	
+	public ExpiringWatcher interval(int interval) {
+		this.interval = interval;
+		return this;
 	}
 	
 	public void quit() {

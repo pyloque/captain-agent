@@ -17,6 +17,8 @@ public class Bootstrap {
 	private int port = 6789;
 	private String redisHost = "localhost";
 	private int redisPort = 6379;
+	private int interval = 1000;
+	private boolean readonly;
 
 	private RedisStore redis;
 	private DiscoveryService discovery;
@@ -48,6 +50,12 @@ public class Bootstrap {
 			this.redisHost = pair[0];
 			this.redisPort = Integer.parseInt(pair[1]);
 		}
+		if (args.length > 2) {
+			this.interval = Integer.parseInt(args[2]);
+			if (this.interval <= 0) {
+				this.readonly = true;
+			}
+		}
 		this.initialize(new RedisStore(this.redisHost, this.redisPort));
 	}
 
@@ -55,7 +63,7 @@ public class Bootstrap {
 		this.redis = redis;
 		this.discovery = new DiscoveryService(this.redis);
 		this.watcher = new ExpiringWatcher(this.discovery);
-		this.watcher.setDaemon(true);
+		this.watcher.interval(interval).setDaemon(true);
 	}
 
 	public Bootstrap port(int port) {
@@ -67,8 +75,15 @@ public class Bootstrap {
 		return this.port;
 	}
 
+	public Bootstrap interval(int interval) {
+		this.watcher.interval(interval);
+		return this;
+	}
+
 	public Bootstrap watch() {
-		this.watcher.start();
+		if (this.readonly) {
+			this.watcher.start();
+		}
 		return this;
 	}
 
@@ -76,38 +91,42 @@ public class Bootstrap {
 		Spark.port(port);
 		Spark.staticFileLocation("/static");
 
-		Spark.get("/api/service/keep", jsonType, (req, res) -> {
-			String name = req.queryParams("name");
-			String host = req.queryParams("host");
-			String port = req.queryParams("port");
-			String ttl = req.queryParams("ttl");
-			Map<String, Object> result = new HashMap<String, Object>();
-			result.put("ok", false);
-			if (Helpers.isEmpty(name) || Helpers.isEmpty(host) || Helpers.isEmpty(port) || !Helpers.isInteger(port)
-					|| !Helpers.isInteger(ttl)) {
-				res.status(400);
-				result.put("reason", "params illegal");
-			} else {
-				this.discovery.keepService(new ServiceItem(name, host, Integer.parseInt(port), Integer.parseInt(ttl)));
-				result.put("ok", true);
-			}
-			return result;
-		}, jsonify);
+		if (!this.readonly) {
+			Spark.get("/api/service/keep", jsonType, (req, res) -> {
+				String name = req.queryParams("name");
+				String host = req.queryParams("host");
+				String port = req.queryParams("port");
+				String ttl = req.queryParams("ttl");
+				Map<String, Object> result = new HashMap<String, Object>();
+				result.put("ok", false);
+				if (Helpers.isEmpty(name) || Helpers.isEmpty(host) || Helpers.isEmpty(port) || !Helpers.isInteger(port)
+						|| !Helpers.isInteger(ttl)) {
+					res.status(400);
+					result.put("reason", "params illegal");
+				} else {
+					this.discovery
+							.keepService(new ServiceItem(name, host, Integer.parseInt(port), Integer.parseInt(ttl)));
+					result.put("ok", true);
+				}
+				return result;
+			}, jsonify);
 
-		Spark.get("/api/service/cancel", jsonType, (req, res) -> {
-			String name = req.queryParams("name");
-			String host = req.queryParams("host");
-			String port = req.queryParams("port");
-			Map<String, Object> result = new HashMap<String, Object>();
-			if (Helpers.isEmpty(name) || Helpers.isEmpty(host) || Helpers.isEmpty(port) || !Helpers.isInteger(port)) {
-				res.status(400);
-				result.put("reason", "params illegal");
-			} else {
-				this.discovery.cancelService(new ServiceItem(name, host, Integer.parseInt(port)));
-				result.put("ok", true);
-			}
-			return result;
-		}, jsonify);
+			Spark.get("/api/service/cancel", jsonType, (req, res) -> {
+				String name = req.queryParams("name");
+				String host = req.queryParams("host");
+				String port = req.queryParams("port");
+				Map<String, Object> result = new HashMap<String, Object>();
+				if (Helpers.isEmpty(name) || Helpers.isEmpty(host) || Helpers.isEmpty(port)
+						|| !Helpers.isInteger(port)) {
+					res.status(400);
+					result.put("reason", "params illegal");
+				} else {
+					this.discovery.cancelService(new ServiceItem(name, host, Integer.parseInt(port)));
+					result.put("ok", true);
+				}
+				return result;
+			}, jsonify);
+		}
 
 		Spark.get("/api/service/version", jsonType, (req, res) -> {
 			String[] names = req.queryMap("name").values();

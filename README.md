@@ -37,72 +37,8 @@ Web UI
 ![All Services](screenshot/all_services.png)
 ![Service List](screenshot/service_list.png)
 
-Use Captain Python Client
----------------------------
-```
-git clone github.com/pyloque/pycaptain.git
-
-from pycaptain import CaptainClient, ServiceItem, IServiceObserver
-
-
-class ServiceCallback(IServiceObserver):
-
-    def ready(self, name):
-        print name, "is ready"
-
-    def all_ready(self):
-        print "service4 is all ready"
-
-    def offline(self, name):
-        print name, "is offline"
-
-
-client = CaptainClient.origin("localhost", 6789)
-(client.watch("service1", "service2", "service3")
-    .provide("service4", ServiceItem("localhost", 6400))
-    .observe(ServiceCallback())
-    .stop_on_exit()
-    .start())
-client.hang() # hang just for test
-
-```
-
-Use Captain Java Client
------------------------
-```
-git clone github.com/pyloque/captain-java.git
-
-import captain.CaptainClient
-
-public class Service4 {
-
-    public static void main(String[] args) throws Exception {
-        CaptainClient client = new CaptainClient("localhost", 6789);
-        client.watch("service1", "service2", "service3")
-        .provide("service4", new ServiceItem("localhost", 6000))
-        .observe(new IServiceObserver() {
-
-            @Override
-            public void ready(String name) {
-                System.out.println("ready:" + name);
-            }
-
-            @Override
-            public void allReady() {
-                System.out.println("service4 is ready");
-                System.out.println("service1:" + client.select("service1").urlRoot());
-                System.out.println("service2:" + client.select("service2").urlRoot());
-                System.out.println("service3:" + client.select("service3").urlRoot());
-            }
-
-            @Override
-            public void offline(String name) {
-                System.out.println("offline:" + name);
-            }
-
-        }).stopBeforeExit().start();
-        client.hang();
-    }
-}
-
-```
+Client SDK
+------------------------
+[Python Client](https://github.com/pyloque/pycaptain)
+[Java Client](https://github.com/pyloque/captain-java)
+[Golang Client](https://github.com/pyloque/gocaptain)

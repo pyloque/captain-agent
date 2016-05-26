@@ -10,11 +10,12 @@ Architecture
 -------------
 <img src="screenshot/flow.png" width="600" title="Captain Architecture" />
 <img src="screenshot/arch.png" width="600" title="Captain Architecture" />
-
-1. If all captain server or redis shutdown, captain client will keep services information in local memory.
-2. If just one captain server shutdown, captain client will sync service information from other captain server.
-3. If redis shutdown, you can alway dynamically switch to another redis using web ui.
-4. Carefully monitor captain server and redis, recovery quickly, high availability still can be guaranteed.
+1. Captain server is stateless, Client can connect to multiple captain servers.
+2. Captain client can be service provider and service consumer at the same time.
+3. If all captain server or redis shutdown, captain client will keep services information in local memory.
+4. If just one captain server shutdown, captain client will sync service information from other captain server.
+5. If redis shutdown, you can alway dynamically switch to another redis using web ui.
+6. Carefully monitor captain server and redis, recovery quickly, high availability still can be guaranteed.
 
 Internal
 ------------

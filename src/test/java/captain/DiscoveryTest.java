@@ -12,26 +12,22 @@ import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
 
 import junit.framework.Assert;
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.JedisPoolConfig;
 
 public class DiscoveryTest {
 
 	private Bootstrap bootstrap;
 	private String urlRoot;
-	private RedisStore redis;
 	private String name = "sample";
 
 	@Before
 	public void setup() {
 		bootstrap = new Bootstrap();
-		JedisPoolConfig config = new JedisPoolConfig();
-		JedisPool pool = new JedisPool(config, "localhost");
-		redis = new RedisStore(pool);
-		bootstrap.initialize(redis);
-		bootstrap.port(randomPort());
+		Config config = new Config();
+		config.bindHost("localhost").bindPort(randomPort()).redisHost("localhost").redisPort(6379).interval(1000)
+				.inifile(null);
+		bootstrap.initWithConfig(config);
 		bootstrap.start();
-		this.urlRoot = "http://localhost:" + bootstrap.port();
+		this.urlRoot = "http://localhost:" + bootstrap.config().bindPort();
 		this.clean();
 	}
 
@@ -70,9 +66,9 @@ public class DiscoveryTest {
 		clean();
 		bootstrap.halt();
 	}
-	
+
 	private void clean() {
-		redis.execute(jedis -> {
+		bootstrap.redis().execute(jedis -> {
 			jedis.del("service_version_" + name);
 			jedis.del("service_set_" + name);
 			jedis.srem("service_names", name);

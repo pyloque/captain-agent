@@ -12,7 +12,8 @@ Architecture
 
 1. If all captain server or redis shutdown, captain client will keep services information in local memory.
 2. If just one captain server shutdown, captain client will sync service information from other captain server.
-3. Carefully monitor captain server and redis, recovery quickly, high availability still can be guaranteed.
+3. If redis shutdown, you can alway dynamically switch to another redis using web ui.
+4. Carefully monitor captain server and redis, recovery quickly, high availability still can be guaranteed.
 
 Internal
 ------------
@@ -41,19 +42,42 @@ git clone github.com/pyloque/captain.git
 cd captain
 mvn package
 java -jar target/captain.jar
-java -jar target/captain.jar 6789  # http bind port
-java -jar target/captain.jar 6789 localhost:6379 # specify redis url
-java -jar target/captain.jar 6789 localhost:6379 1000 # specify expiring watch interval for 1000ms
-java -jar target/captain.jar 6789 localhost:6379 0 # runs in readonly mode with expiring watch not started
+java -jar target/captain.jar ${configfile}  # custom config file
 
 open web ui
 http://localhost:6789
 ```
 
+Configuration
+--------------------
+Default Config File is ${user.home}/.captain/captain.ini
+```ini
+[bind]
+host = 0.0.0.0
+port = 6789
+
+[redis]
+host = localhost
+port = 6379
+db = 0
+
+[watch]
+interval = 1000 # service expiring check interval, default 1000ms. server will run in readonly mode if interval=0.
+
+```
+
+Readonly Mode
+------------------------
+If Server runs in readonly mode
+1. service expiring check thread will not be started.
+2. service keep and cancel api will not be open
+
+
 Web UI
 ------------------------
 <img src="screenshot/all_services.png" width="600" title="All Services" />
 <img src="screenshot/service_list.png" width="600" title="Service List" />
+<img src="screenshot/config.png" width="600" title="Configuration"/ >
 
 Client SDK
 ------------------------

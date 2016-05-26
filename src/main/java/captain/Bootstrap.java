@@ -1,12 +1,19 @@
 package captain;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import redis.clients.jedis.exceptions.JedisConnectionException;
 import spark.Spark;
 
 public class Bootstrap {
+
+	private final static Logger LOG = LoggerFactory.getLogger(Bootstrap.class);
 
 	public static void main(String[] args) {
 		Bootstrap bootstrap = new Bootstrap();
@@ -14,11 +21,7 @@ public class Bootstrap {
 		bootstrap.watch().start();
 	}
 
-	private int port = 6789;
-	private String redisHost = "localhost";
-	private int redisPort = 6379;
-	private int interval = 1000;
-	private boolean readonly;
+	private Config config;
 
 	private RedisStore redis;
 	private DiscoveryService discovery;
@@ -27,71 +30,56 @@ public class Bootstrap {
 	private final static FreeMarkerEngine engine = new FreeMarkerEngine();
 	private final static String jsonType = "application/json";
 
-	public Bootstrap() {
-		this(6789);
-	}
-
-	public Bootstrap(int port) {
-		this(port, "localhost", 6379);
-	}
-
-	public Bootstrap(int port, String redisHost, int redisPort) {
-		this.port = port;
-		this.redisHost = redisHost;
-		this.redisPort = redisPort;
-	}
-
 	public void initialize(String[] args) {
+		Config config = new Config();
 		if (args.length > 0) {
-			this.port = Integer.parseInt(args[0]);
+			config.inifile(args[0]);
 		}
-		if (args.length > 1) {
-			String[] pair = args[1].split(":");
-			this.redisHost = pair[0];
-			this.redisPort = Integer.parseInt(pair[1]);
+		try {
+			config.load();
+		} catch (IOException e) {
+			LOG.error("load config file error", e);
+			System.exit(-1);
 		}
-		if (args.length > 2) {
-			this.interval = Integer.parseInt(args[2]);
-			if (this.interval <= 0) {
-				this.readonly = true;
-			}
-		}
-		this.initialize(new RedisStore(this.redisHost, this.redisPort));
+		this.initWithConfig(config);
 	}
 
-	public void initialize(RedisStore redis) {
-		this.redis = redis;
+	public void initWithConfig(Config config) {
+		this.config = config;
+		this.redis = new RedisStore(config.redisUri());
 		this.discovery = new DiscoveryService(this.redis);
 		this.watcher = new ExpiringWatcher(this.discovery);
-		this.watcher.interval(interval).setDaemon(true);
+		this.watcher.interval(config.interval()).setDaemon(true);
 	}
 
-	public Bootstrap port(int port) {
-		this.port = port;
-		return this;
+	public void switchRedis() {
+		RedisStore oldRedis = this.redis;
+		this.redis = new RedisStore(config.redisUri());
+		this.discovery = new DiscoveryService(this.redis);
+		oldRedis.close();
 	}
 
-	public int port() {
-		return this.port;
+	public RedisStore redis() {
+		return this.redis;
 	}
-
-	public Bootstrap interval(int interval) {
-		this.watcher.interval(interval);
-		return this;
+	
+	public Config config() {
+		return config;
 	}
 
 	public Bootstrap watch() {
-		if (this.readonly) {
+		if (config.readonly()) {
 			this.watcher.start();
 		}
 		return this;
 	}
 
 	public void start() {
-		Spark.port(port);
+		Spark.ipAddress(config.bindHost());
+		Spark.port(config.bindPort());
 		Spark.staticFileLocation("/static");
 
-		if (!this.readonly) {
+		if (!config.readonly()) {
 			Spark.get("/api/service/keep", jsonType, (req, res) -> {
 				String name = req.queryParams("name");
 				String host = req.queryParams("host");
@@ -168,14 +156,20 @@ public class Bootstrap {
 		}, jsonify);
 
 		Spark.get("/service/", (req, res) -> {
-			Set<String> nameset = this.discovery.getServiceNames();
-			String[] names = new String[nameset.size()];
-			nameset.toArray(names);
-			Map<String, Integer> services = this.discovery.getMultiServiceLens(names);
-			long version = this.discovery.getServiceGlobalVersion();
 			Map<String, Object> context = new HashMap<String, Object>();
-			context.put("services", services);
-			context.put("version", version);
+			context.put("config", config);
+			try {
+				Set<String> nameset = this.discovery.getServiceNames();
+				String[] names = new String[nameset.size()];
+				nameset.toArray(names);
+				Map<String, Integer> services = this.discovery.getMultiServiceLens(names);
+				long version = this.discovery.getServiceGlobalVersion();
+				context.put("services", services);
+				context.put("version", version);
+			} catch (JedisConnectionException e) {
+				context.put("reason", e.toString());
+				context.put("stacktraces", e.getStackTrace());
+			}
 			return Spark.modelAndView(context, "service_all.ftl");
 		}, engine);
 
@@ -188,8 +182,30 @@ public class Bootstrap {
 			context.put("version", version);
 			context.put("services", services);
 			context.put("name", name);
+			context.put("config", config);
 			return Spark.modelAndView(context, "service_detail.ftl");
 		}, engine);
+
+		Spark.get("/service/config/", (req, res) -> {
+			Map<String, Object> context = new HashMap<String, Object>();
+			context.put("config", config);
+			return Spark.modelAndView(context, "config_edit.ftl");
+		}, engine);
+
+		Spark.post("/service/config/", (req, res) -> {
+			String redisHost = req.queryParams("redisHost");
+			int redisPort = Integer.parseInt(req.queryParams("redisPort"));
+			int redisDb = Integer.parseInt(req.queryParams("redisDb"));
+			config.redisHost(redisHost).redisPort(redisPort).redisDb(redisDb);
+			try {
+				config.save();
+			} catch (IOException e) {
+				LOG.error("save config error", e);
+			}
+			switchRedis();
+			res.redirect("/service/");
+			return null;
+		});
 
 	}
 

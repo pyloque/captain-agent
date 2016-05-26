@@ -1,6 +1,7 @@
 <#include "layout.ftl">
 
 <#macro content>
+<#include "config_show.ftl">
 <div class="panel panel-success">
 	<div class="panel-heading"><a href="/service/">Service ${name}</a> [version=${version}]</div>
 	<div class="panel-body">

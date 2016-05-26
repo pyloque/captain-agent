@@ -45,7 +45,7 @@ java -jar target/captain.jar
 java -jar target/captain.jar ${configfile}  # custom config file
 
 open web ui
-http://localhost:6789
+http://localhost:6789/service/
 ```
 
 Configuration
@@ -69,6 +69,7 @@ interval = 1000 # service expiring check interval, default 1000ms. server will r
 Readonly Mode
 ------------------------
 If Server runs in readonly mode
+
 1. service expiring check thread will not be started.
 2. service keep and cancel api will not be open
 

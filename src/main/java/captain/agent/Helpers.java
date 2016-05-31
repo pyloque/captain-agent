@@ -1,4 +1,4 @@
-package captain;
+package captain.agent;
 
 public class Helpers {
 
@@ -14,7 +14,15 @@ public class Helpers {
 			return false;
 		}
 	}
-	
+
+	public static boolean isPositive(String param) {
+		try {
+			return Integer.parseInt(param) > 0;
+		} catch (NumberFormatException e) {
+			return false;
+		}
+	}
+
 	public static boolean isLong(String param) {
 		try {
 			Long.parseLong(param);

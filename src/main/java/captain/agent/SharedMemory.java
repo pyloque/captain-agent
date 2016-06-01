@@ -1,7 +1,5 @@
 package captain.agent;
 
-import java.io.File;
-import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -10,12 +8,9 @@ import java.util.Map;
 import java.util.Set;
 
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import captain.CaptainException;
 import captain.ServiceItem;
-import captain.shared.MemoryMappedFile;
 
 /**
  * memory = service_header_size + max_services * max_service_record_size +
@@ -30,18 +25,15 @@ import captain.shared.MemoryMappedFile;
  */
 public class SharedMemory {
 
-	private final static Logger LOG = LoggerFactory.getLogger(SharedMemory.class);
-
 	private final static int MAX_ITEM_SIZE = 64;
 	private final static int MAX_ITEMS_PER_SERVICE = 1024;
 	private final static int MAX_SERVICES = 128;
 	private final static int MAX_KVS = 64;
 	private final static int MAX_KV_RECORD_SIZE = 1024 * 64;
-	private final static int SERVICE_HEADER_SIZE = MAX_ITEM_SIZE * 4;
+	private final static int SERVICE_HEADER_SIZE = MAX_SERVICES * 4;
 	private final static int KV_HEADER_SIZE = MAX_KVS * 4;
 	private final static int MAX_SERVICE_RECORD_SIZE = MAX_ITEMS_PER_SERVICE * MAX_ITEM_SIZE;
-	private final static int KV_HEADER_OFFSET = SERVICE_HEADER_SIZE + MAX_SERVICE_RECORD_SIZE * MAX_ITEM_SIZE;
-	private final static int SHARED_MEMORY_SIZE = KV_HEADER_OFFSET + KV_HEADER_SIZE + MAX_KVS * MAX_KV_RECORD_SIZE;
+	private final static int KV_HEADER_OFFSET = SERVICE_HEADER_SIZE + MAX_SERVICE_RECORD_SIZE * MAX_SERVICES;
 
 	private Map<String, Integer> service2slots = new HashMap<String, Integer>();
 	private Map<String, Integer> kv2slots = new HashMap<String, Integer>();
@@ -52,19 +44,10 @@ public class SharedMemory {
 	private boolean[] serviceBlocksState = new boolean[MAX_SERVICES];
 	private boolean[] kvBlocksState = new boolean[MAX_KVS];
 
-	private MemoryMappedFile file;
+	private RamDiskFile file;
 
-	public SharedMemory() {
-		try {
-			File f = new File("/tmp/captain/agent.so");
-			if (!f.exists()) {
-				f.getParentFile().mkdirs();
-			}
-			this.file = new MemoryMappedFile("/tmp/captain/agent.so", SHARED_MEMORY_SIZE);
-		} catch (Exception e) {
-			LOG.error("open memory mapped file error", e);
-			System.exit(-1);
-		}
+	public SharedMemory(String shmfile) {
+		this.file = new RamDiskFile(shmfile);
 	}
 
 	public synchronized int allocServiceSlot(String name) {
@@ -80,7 +63,8 @@ public class SharedMemory {
 		}
 		this.serviceSlotsState[i] = true;
 		this.service2slots.put(name, i);
-		this.serviceSlot2Blocks.put(i, -1);
+		this.serviceSlot2Blocks.put(i, MAX_SERVICES); // block = MAX_SERVICES means invalid block
+		this.file.putInt(i * 4, MAX_SERVICES);
 		return i;
 	}
 
@@ -97,7 +81,8 @@ public class SharedMemory {
 		}
 		this.kvSlotsState[i] = true;
 		this.kv2slots.put(key, i);
-		this.kvSlot2Blocks.put(i, -1);
+		this.kvSlot2Blocks.put(i, MAX_KVS); // block = MAX_KVS means invalid block
+		this.file.putInt(i * 4 + KV_HEADER_OFFSET, MAX_KVS);
 		return i;
 	}
 
@@ -118,7 +103,7 @@ public class SharedMemory {
 		// mark new block busy
 		serviceBlocksState[newBlock] = true;
 
-		int index = SERVICE_HEADER_SIZE + newBlock * MAX_SERVICE_RECORD_SIZE;
+		int offset = SERVICE_HEADER_SIZE + newBlock * MAX_SERVICE_RECORD_SIZE;
 		StringBuffer buffer = new StringBuffer();
 		for (int k = 0; k < services.size(); k++) {
 			ServiceItem item = services.get(k);
@@ -130,18 +115,13 @@ public class SharedMemory {
 		}
 		byte[] bytes = buffer.toString().getBytes();
 		// write serialized services to new block
-		file.putLong(index, version);
-		file.putInt(index + 8, bytes.length);
+		file.putLong(offset, version);
+		file.putInt(offset + 8, bytes.length);
 		if (bytes.length > 0) {
-			file.setBytes(index + 12, bytes, 0, bytes.length);
+			file.setBytes(offset + 12, bytes);
 		}
-		ByteBuffer buf = ByteBuffer.allocate(4);
-		buf.putInt(bytes.length);
-		bytes = buf.array();
-		// write new block index to header slot
-		file.setBytes(currentSlot * 4, bytes, 0, 4);
-
-		if (currentBlock > 0) {
+		file.putInt(currentSlot * 4, newBlock);
+		if (currentBlock < MAX_SERVICES) {
 			// mark old block free
 			this.serviceBlocksState[currentBlock] = false;
 		}
@@ -167,19 +147,16 @@ public class SharedMemory {
 		// mark new block busy
 		kvBlocksState[newBlock] = true;
 
-		int index = KV_HEADER_SIZE + newBlock * MAX_KV_RECORD_SIZE;
+		int offset = KV_HEADER_OFFSET + KV_HEADER_SIZE + newBlock * MAX_KV_RECORD_SIZE;
 		byte[] bytes = json.toString().getBytes();
 		// write serialized services to new block
-		file.putLong(index, version);
-		file.putInt(index + 8, bytes.length);
-		file.setBytes(index + 12, bytes, 0, bytes.length);
-		ByteBuffer buf = ByteBuffer.allocate(4);
-		buf.putInt(bytes.length);
-		bytes = buf.array();
+		file.putLong(offset, version);
+		file.putInt(offset + 8, bytes.length);
+		file.setBytes(offset + 12, bytes);
 		// write new block index to header slot
-		file.setBytes(currentSlot * 4, bytes, 0, 4);
+		file.putInt(KV_HEADER_OFFSET + currentSlot * 4, newBlock);
 
-		if (currentBlock > 0) {
+		if (currentBlock < MAX_KVS) {
 			// mark old block free
 			this.kvBlocksState[currentBlock] = false;
 		}
@@ -194,16 +171,15 @@ public class SharedMemory {
 		if (slot == null) {
 			return set;
 		}
-		int block = this.serviceSlot2Blocks.get(slot);
-		if (block == -1) {
+		int block = this.file.getInt(slot * 4);
+		if(block == MAX_SERVICES) {
 			return set;
 		}
-		int index = SERVICE_HEADER_SIZE + block * MAX_SERVICE_RECORD_SIZE;
-		long version = this.file.getLong(index);
-		int len = this.file.getInt(index + 8);
+		int offset = SERVICE_HEADER_SIZE + block * MAX_SERVICE_RECORD_SIZE;
+		long version = this.file.getLong(offset);
+		int len = this.file.getInt(offset + 8);
 		if (len > 0) {
-			byte[] bytes = new byte[len];
-			this.file.getBytes(index + 12, bytes, 0, len);
+			byte[] bytes = this.file.getBytes(offset + 12, len);
 			String[] pairs = new String(bytes).split(",");
 			Set<ServiceItem> items = new HashSet<ServiceItem>();
 			for (String pair : pairs) {
@@ -223,18 +199,21 @@ public class SharedMemory {
 		if (slot == null) {
 			return kv;
 		}
-		int block = this.kvSlot2Blocks.get(slot);
-		if (block == -1) {
+		int block = this.file.getInt(slot * 4);
+		if(block == MAX_KVS) {
 			return kv;
 		}
-		int index = KV_HEADER_SIZE + block * MAX_KV_RECORD_SIZE;
-		long version = this.file.getLong(index);
-		int len = this.file.getInt(index + 8);
-		byte[] bytes = new byte[len];
-		this.file.getBytes(index + 12, bytes, 0, len);
+		int offset = KV_HEADER_OFFSET + KV_HEADER_SIZE + block * MAX_KV_RECORD_SIZE;
+		long version = this.file.getLong(offset);
+		int len = this.file.getInt(offset + 8);
+		byte[] bytes = this.file.getBytes(offset + 12, len);
 		kv.setValue(new JSONObject(new String(bytes)));
 		kv.setVersion(version);
 		return kv;
+	}
+
+	public synchronized void sync() {
+		this.file.sync();
 	}
 
 }

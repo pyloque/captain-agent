@@ -7,7 +7,7 @@ But the market only provides zookeeper/etcd/consul, they are complex, at least m
 
 Why Agent
 -------------
-Php has no stabilized multithread support. So agent is provided to communite with php client using memory mapped file.
+Php has no stabilized multithread support. So agent is provided to communite with php client using ramdisk file.
 
 Architecture
 ------------
@@ -19,6 +19,14 @@ Usage
 install redis
 install java8
 install maven
+
+#create ramdisk
+hdiutil attach -nomount ram://163840
+newfs_hfs /dev/disk2
+mkdir -p /tmp/ramdisk/captain
+mount -t hfs /dev/disk2 /tmp/ramdisk/captain
+cd /tmp/ramdisk/captain
+dd if=/dev/zero of=agent bs=12583680 count=1
 
 git clone github.com/pyloque/captain-java.git
 git clone github.com/pyloque/captain-agent.git

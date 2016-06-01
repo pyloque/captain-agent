@@ -14,6 +14,7 @@ public class Config {
 	private int threadNum = Runtime.getRuntime().availableProcessors();
 	private int keepAlive = 5;
 	private int interval = 1000;
+	private String shmfile = "/tmp/memdisk/captain/agent";
 	private List<String> origins = new ArrayList<String>();
 	private String inifile = System.getProperty("user.home") + "/.captain/captain.agent.ini";
 
@@ -48,6 +49,15 @@ public class Config {
 		return this;
 	}
 
+	public Config shmfile(String shmfile) {
+		this.shmfile = shmfile;
+		return this;
+	}
+	
+	public String shmfile() {
+		return this.shmfile;
+	}
+	
 	public int keepAlive() {
 		return keepAlive;
 	}
@@ -84,6 +94,7 @@ public class Config {
 		ini.put("server", "thread", this.threadNum);
 		ini.put("watch", "keepalive", this.keepAlive);
 		ini.put("watch", "interval", this.interval);
+		ini.put("shm", "file", this.shmfile);
 		ini.store();
 	}
 
@@ -99,6 +110,7 @@ public class Config {
 			Integer threadNum = ini.get("server", "thread", Integer.class);
 			Integer interval = ini.get("watch", "interval", Integer.class);
 			Integer keepAlive = ini.get("watch", "keepalive", Integer.class);
+			String shmfile = ini.get("shm", "file", String.class);
 			if (bindPort != null) {
 				this.bindPort = bindPort;
 			}
@@ -113,6 +125,9 @@ public class Config {
 			}
 			if (keepAlive != null) {
 				this.keepAlive = keepAlive;
+			}
+			if(shmfile != null) {
+				this.shmfile = shmfile;
 			}
 		}
 	}

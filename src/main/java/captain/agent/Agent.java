@@ -25,7 +25,7 @@ public class Agent {
 
 	private Config config;
 	private CaptainClient client;
-	private SharedMemory shared = new SharedMemory();
+	private SharedMemory shared;
 	private final static GsonTransformer jsonify = new GsonTransformer();
 	private final static String jsonType = "application/json";
 
@@ -45,6 +45,15 @@ public class Agent {
 
 	public void initWithConfig(Config config) {
 		this.config = config;
+		List<ServiceItem> origins = new ArrayList<ServiceItem>();
+		for (String origin : config.origins()) {
+			String[] pair = origin.split(":");
+			ServiceItem item = new ServiceItem(pair[0], Integer.parseInt(pair[1]));
+			origins.add(item);
+		}
+		client = new CaptainClient(origins);
+		client.keepAlive(config.keepAlive()).checkInterval(config.interval());
+		shared = new SharedMemory(config.shmfile());
 	}
 
 	public Config config() {
@@ -54,27 +63,15 @@ public class Agent {
 	public void start() {
 		Spark.port(config.bindPort());
 		Spark.threadPool(config.threadNum());
-		initCaptainClient();
-		initHandlers();
-	}
-
-	public void initCaptainClient() {
-		List<ServiceItem> origins = new ArrayList<ServiceItem>();
-		for (String origin : config.origins()) {
-			String[] pair = origin.split(":");
-			ServiceItem item = new ServiceItem(pair[0], Integer.parseInt(pair[1]));
-			origins.add(item);
-		}
-		client = new CaptainClient(origins);
-		client.keepAlive(config.keepAlive()).checkInterval(config.interval());
 		client.observe(new Observer(shared)).start();
+		initHandlers();
 	}
 
 	public void initHandlers() {
 		Spark.get("/api/kv/get", jsonType, (req, res) -> {
 			Map<String, Object> result = new HashMap<String, Object>();
 			String key = req.queryParams("key");
-			if(Helpers.isEmpty(key)) {
+			if (Helpers.isEmpty(key)) {
 				result.put("ok", false);
 				result.put("reason", "param illegal");
 				return result;
@@ -91,6 +88,7 @@ public class Agent {
 			for (String key : keys) {
 				slots.put(key, this.shared.allocKvSlot(key));
 			}
+			this.shared.sync();
 			this.client.watchKv(keys);
 			result.put("slots", slots);
 			result.put("ok", true);
@@ -99,7 +97,7 @@ public class Agent {
 		Spark.get("/api/service/get", jsonType, (req, res) -> {
 			Map<String, Object> result = new HashMap<String, Object>();
 			String name = req.queryParams("name");
-			if(Helpers.isEmpty(name)) {
+			if (Helpers.isEmpty(name)) {
 				result.put("ok", false);
 				result.put("reason", "param illegal");
 				return result;
@@ -116,6 +114,7 @@ public class Agent {
 			for (String name : names) {
 				slots.put(name, this.shared.allocServiceSlot(name));
 			}
+			this.shared.sync();
 			this.client.watch(names);
 			result.put("slots", slots);
 			result.put("ok", true);

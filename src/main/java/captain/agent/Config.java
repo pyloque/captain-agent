@@ -14,7 +14,7 @@ public class Config {
 	private int threadNum = Runtime.getRuntime().availableProcessors();
 	private int keepAlive = 5;
 	private int interval = 1000;
-	private String shmfile = "/tmp/memdisk/captain/agent";
+	private String shmfile = "/tmp/ramdisk/captain/agent";
 	private List<String> origins = new ArrayList<String>();
 	private String inifile = System.getProperty("user.home") + "/.captain/captain.agent.ini";
 

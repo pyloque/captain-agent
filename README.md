@@ -54,6 +54,9 @@ origins=localhost:6789
 [watch]
 interval=1000
 keepalive=5
+
+[shm]
+file=/tmp/ramdisk/captain/agent  # ramdisk file location
 ```
 
 API

@@ -115,12 +115,4 @@ public class RamDiskFile implements Closeable {
 		}
 	}
 	
-	public void sync() {
-		try {
-			this.channel.force(true);
-		} catch (IOException e) {
-			LOG.error("sync file to disk error", e);
-		}
-	}
-
 }

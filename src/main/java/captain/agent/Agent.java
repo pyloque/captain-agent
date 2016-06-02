@@ -27,6 +27,7 @@ public class Agent {
 	private CaptainClient client;
 	private SharedMemory shared;
 	private final static GsonTransformer jsonify = new GsonTransformer();
+	private final static FreeMarkerEngine engine = new FreeMarkerEngine();
 	private final static String jsonType = "application/json";
 
 	public void initialize(String[] args) {
@@ -54,6 +55,12 @@ public class Agent {
 		client = new CaptainClient(origins);
 		client.keepAlive(config.keepAlive()).checkInterval(config.interval());
 		shared = new SharedMemory(config.shmfile());
+		for (String name : shared.serviceNames()) {
+			client.watch(name);
+		}
+		for (String key : shared.kvKeys()) {
+			client.watchKv(key);
+		}
 	}
 
 	public Config config() {
@@ -63,11 +70,47 @@ public class Agent {
 	public void start() {
 		Spark.port(config.bindPort());
 		Spark.threadPool(config.threadNum());
+		Spark.staticFileLocation("/static");
 		client.observe(new Observer(shared)).start();
-		initHandlers();
+		initAPIHandlers();
+		initUIHandlers();
 	}
 
-	public void initHandlers() {
+	public void initUIHandlers() {
+		Spark.get("/agent/", (req, res) -> {
+			Map<String, Object> context = new HashMap<String, Object>();
+			context.put("config", config);
+			context.put("services", shared.serviceNames());
+			context.put("kvs", shared.kvKeys());
+			return Spark.modelAndView(context, "agent.ftl");
+		}, engine);
+
+		Spark.get("/agent/service/", (req, res) -> {
+			String name = req.queryParams("name");
+			Map<String, Object> context = new HashMap<String, Object>();
+			context.put("config", config);
+			context.put("services", this.shared.getServices(name));
+			return Spark.modelAndView(context, "agent_service.ftl");
+		}, engine);
+
+		Spark.get("/agent/kv/", (req, res) -> {
+			Map<String, Object> context = new HashMap<String, Object>();
+			String key = req.queryParams("key");
+			context.put("config", config);
+			context.put("kv", this.shared.getKv(key));
+			return Spark.modelAndView(context, "agent_kv.ftl");
+		}, engine);
+
+		Spark.get("/agent/kv/unwatch", (req, res) -> {
+			String key = req.queryParams("key");
+			client.unwatchKv(key);
+			res.redirect("/agent/");
+			return null;
+		}, engine);
+
+	}
+
+	public void initAPIHandlers() {
 		Spark.get("/api/kv/get", jsonType, (req, res) -> {
 			Map<String, Object> result = new HashMap<String, Object>();
 			String key = req.queryParams("key");
@@ -84,11 +127,17 @@ public class Agent {
 		Spark.get("/api/kv/watch", jsonType, (req, res) -> {
 			Map<String, Object> result = new HashMap<String, Object>();
 			String[] keys = req.queryMap("key").values();
+			for (String key : keys) {
+				if (key.length() > 64) {
+					result.put("ok", false);
+					result.put("reason", "key length should be less than 64");
+					return result;
+				}
+			}
 			Map<String, Object> slots = new HashMap<String, Object>();
 			for (String key : keys) {
 				slots.put(key, this.shared.allocKvSlot(key));
 			}
-			this.shared.sync();
 			this.client.watchKv(keys);
 			result.put("slots", slots);
 			result.put("ok", true);
@@ -110,11 +159,17 @@ public class Agent {
 		Spark.get("/api/service/watch", jsonType, (req, res) -> {
 			Map<String, Object> result = new HashMap<String, Object>();
 			String[] names = req.queryMap("name").values();
+			for (String name : names) {
+				if (name.length() > 64) {
+					result.put("ok", false);
+					result.put("reason", "name length should be less than 64");
+					return result;
+				}
+			}
 			Map<String, Object> slots = new HashMap<String, Object>();
 			for (String name : names) {
 				slots.put(name, this.shared.allocServiceSlot(name));
 			}
-			this.shared.sync();
 			this.client.watch(names);
 			result.put("slots", slots);
 			result.put("ok", true);

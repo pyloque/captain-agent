@@ -14,13 +14,11 @@ public class Observer implements ICaptainObserver {
 	@Override
 	public void kvUpdate(CaptainClient client, String key) {
 		this.shared.updateKv(key, client.kvVersion(key), client.kv(key));
-		this.shared.sync();
 	}
 
 	@Override
 	public void serviceUpdate(CaptainClient client, String name) {
 		this.shared.updateService(name, client.serviceVersion(name), client.selectAll(name));
-		this.shared.sync();
 	}
 
 	@Override

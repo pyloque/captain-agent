@@ -26,7 +26,7 @@ newfs_hfs /dev/disk2
 mkdir -p /tmp/ramdisk/captain
 mount -t hfs /dev/disk2 /tmp/ramdisk/captain
 cd /tmp/ramdisk/captain
-dd if=/dev/zero of=agent bs=12583680 count=1
+dd if=/dev/zero of=agent bs=12608007 count=1
 
 git clone github.com/pyloque/captain-java.git
 git clone github.com/pyloque/captain-agent.git
@@ -39,6 +39,9 @@ cd captain-agent
 mvn package
 java -jar target/captain-agent.jar
 java -jar target/captain-agent.jar ${configfile}  # custom config file
+
+open browser
+http://localhost:6790/agent/
 ```
 
 Configuration

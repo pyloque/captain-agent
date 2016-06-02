@@ -81,3 +81,5 @@ Screenshot
 Notice
 ----------------------------------------
 Agent will not support service registration.
+
+<img src="screenshot/weixin.png" width="320" title="QR" />

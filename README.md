@@ -13,6 +13,11 @@ Architecture
 ------------
 <img src="screenshot/arch.png" width="600" title="Agent Architecture" />
 
+RAM Structure
+-------------
+<img src="screenshot/ram.png" width="600" title="Agent Architecture" />
+
+
 Usage
 -------------
 ```bash

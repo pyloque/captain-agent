@@ -69,6 +69,10 @@ API
 3. get service /api/service/get?name=service1
 4. get kv /api/kv/get?key=key1
 
+Screenshot
+----------------------------------------
+<img src="screenshot/agent.png" width="600" title="Agent UI" />
+
 Notice
 ----------------------------------------
 Agent will not support service registration.

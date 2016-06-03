@@ -1,5 +1,6 @@
 package captain.agent;
 
+import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -225,12 +226,13 @@ public class SharedMemory {
 			}
 		}
 		byte[] bytes = buffer.toString().getBytes();
+		ByteBuffer buf = ByteBuffer.allocate(12 + bytes.length);
+		buf.putLong(version);
+		buf.putInt(bytes.length);
+		buf.put(bytes);
+		buf.flip();
 		// write serialized services to new block
-		file.putLong(offset, version);
-		file.putInt(offset + 8, bytes.length);
-		if (bytes.length > 0) {
-			file.setBytes(offset + 12, bytes);
-		}
+		file.setBytes(offset, buf.array());
 		file.putInt(SERVICE_HEADER_OFFSET + currentSlot * 4, newBlock);
 		if (currentBlock < MAX_SERVICES) {
 			// mark old block free
@@ -260,10 +262,13 @@ public class SharedMemory {
 
 		int offset = KV_HEADER_OFFSET + KV_HEADER_SIZE + newBlock * MAX_KV_RECORD_SIZE;
 		byte[] bytes = json.toString().getBytes();
+		ByteBuffer buf = ByteBuffer.allocate(12 + bytes.length);
+		buf.putLong(version);
+		buf.putInt(bytes.length);
+		buf.put(bytes);
+		buf.flip();
 		// write serialized services to new block
-		file.putLong(offset, version);
-		file.putInt(offset + 8, bytes.length);
-		file.setBytes(offset + 12, bytes);
+		file.setBytes(offset, buf.array());
 		// write new block index to header slot
 		file.putInt(KV_HEADER_OFFSET + currentSlot * 4, newBlock);
 
@@ -315,7 +320,6 @@ public class SharedMemory {
 			return kv;
 		}
 		int offset = KV_HEADER_OFFSET + KV_HEADER_SIZE + block * MAX_KV_RECORD_SIZE;
-		System.out.println(offset);
 		long version = this.file.getLong(offset);
 		int len = this.file.getInt(offset + 8);
 		byte[] bytes = this.file.getBytes(offset + 12, len);

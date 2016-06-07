@@ -255,7 +255,7 @@ public class SharedMemory {
 		int currentBlock = this.kvSlot2Blocks.get(currentSlot);
 		for (i = 0; i < MAX_KVS; i++) {
 			int index = (i + kvBlockCursor) % MAX_KVS;
-			if (!kvBlocksState[i]) {
+			if (!kvBlocksState[index]) {
 				break;
 			}
 		}

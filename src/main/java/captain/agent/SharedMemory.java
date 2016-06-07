@@ -59,6 +59,8 @@ public class SharedMemory {
 	private Map<String, Integer> kv2slots = new HashMap<String, Integer>();
 	private Map<Integer, Integer> serviceSlot2Blocks = new HashMap<Integer, Integer>();
 	private Map<Integer, Integer> kvSlot2Blocks = new HashMap<Integer, Integer>();
+	private int kvBlockCursor = 0;
+	private int serviceBlockCursor = 0;
 	private boolean[] serviceSlotsState = new boolean[MAX_SERVICES];
 	private boolean[] kvSlotsState = new boolean[MAX_KVS];
 	private boolean[] serviceBlocksState = new boolean[MAX_SERVICES];
@@ -203,15 +205,17 @@ public class SharedMemory {
 		int currentSlot = this.service2slots.get(name);
 		int currentBlock = this.serviceSlot2Blocks.get(currentSlot);
 		for (i = 0; i < MAX_SERVICES; i++) {
-			if (!serviceBlocksState[i]) {
+			int index = (i + serviceBlockCursor) % MAX_SERVICES;
+			if (!serviceBlocksState[index]) {
 				break;
 			}
 		}
 		if (i == MAX_SERVICES) {
-			throw new CaptainException("service slots full");
+			throw new CaptainException("service blocks full");
 		}
 
-		int newBlock = i;
+		int newBlock = (i + serviceBlockCursor) % MAX_SERVICES;
+
 		// mark new block busy
 		serviceBlocksState[newBlock] = true;
 
@@ -241,6 +245,8 @@ public class SharedMemory {
 
 		// point service slot to new block
 		this.serviceSlot2Blocks.put(currentSlot, newBlock);
+		// move the cursor forward
+		serviceBlockCursor = newBlock + 1;
 	}
 
 	public synchronized void updateKv(String key, long version, JSONObject json) {
@@ -248,6 +254,7 @@ public class SharedMemory {
 		int currentSlot = this.kv2slots.get(key);
 		int currentBlock = this.kvSlot2Blocks.get(currentSlot);
 		for (i = 0; i < MAX_KVS; i++) {
+			int index = (i + kvBlockCursor) % MAX_KVS;
 			if (!kvBlocksState[i]) {
 				break;
 			}
@@ -256,7 +263,7 @@ public class SharedMemory {
 			throw new CaptainException("kv slots full");
 		}
 
-		int newBlock = i;
+		int newBlock = (i + kvBlockCursor) % MAX_KVS;
 		// mark new block busy
 		kvBlocksState[newBlock] = true;
 
@@ -279,6 +286,8 @@ public class SharedMemory {
 
 		// point service slot to new block
 		this.kvSlot2Blocks.put(currentSlot, newBlock);
+		// move block cursor forward
+		kvBlockCursor = newBlock + 1;
 	}
 
 	public synchronized ServiceSet getServices(String name) {
